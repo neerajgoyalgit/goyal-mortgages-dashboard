@@ -44,6 +44,9 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("Chimnie API status:", response.status);
+      console.error("Chimnie API error body:", errorBody);
       console.error(
         "Chimnie API status:",
         response.status
