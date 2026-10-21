@@ -22,7 +22,13 @@ function renderValuation(){
   $('#main').innerHTML=`<section class="section"><div class="eyebrow">E16 PILOT</div><h2>Property value & LTV calculator</h2>
   <p>For E16 properties only. Enter your own estimated property value and outstanding mortgage balance. This version does not claim to provide an automated property valuation.</p>
   <div class="filters ltv-fields">
-  <label>Postcode<input id="e16postcode" placeholder="E16 1AA" maxlength="10" /></label>
+  <label>Postcode<input id="e16postcode" placeholder="E16 2AL" maxlength="10" autocomplete="postal-code" /></label>
+  <div class="address-lookup" style="grid-column:1/-1;display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+    <button id="findE16Address" class="primary" type="button">Find my address</button>
+    <span id="e16addressStatus" role="status" aria-live="polite">Enter your postcode and find your address.</span>
+  </div>
+  <label style="grid-column:1/-1">Select your property<select id="e16address" disabled><option value="">Find addresses first</option></select></label>
+  <p id="e16selected" class="muted" style="grid-column:1/-1" aria-live="polite"></p>
   <label>Estimated property value (£)<input id="e16value" type="number" min="1" value="500000" /></label>
   <label>Mortgage outstanding (£)<input id="e16balance" type="number" min="0" value="320000" /></label>
   <label>Remaining term (years)<input id="e16term" type="number" min="1" max="40" value="25" /></label>
@@ -30,8 +36,57 @@ function renderValuation(){
   <h3>Matching recorded mortgage products</h3><div id="e16matches" class="products"></div>
   <p class="muted">Indicative only. Rates currently represent a stored purchase scenario, not personalised remortgage quotations. Lender valuations, fees, eligibility and early repayment charges may differ. No customer details are stored by this calculator.</p></section>`;
   ['e16postcode','e16value','e16balance','e16term'].forEach(id=>$('#'+id).addEventListener('input',updateValuation));
+  $('#findE16Address').addEventListener('click',findE16Addresses);
+  $('#e16address').addEventListener('change',()=>{
+    const selected=$('#e16address').selectedOptions[0];
+    $('#e16selected').textContent=selected?.value ? `Selected: ${selected.textContent} · UPRN: ${selected.value}` : '';
+  });
+  $('#e16postcode').addEventListener('input',()=>{
+    e16LookupRequest++;
+    const select=$('#e16address');
+    select.replaceChildren(new Option('Find addresses first',''));
+    select.disabled=true;
+    $('#e16selected').textContent='';
+    $('#e16addressStatus').textContent='Click Find my address to search.';
+    $('#findE16Address').disabled=false;
+  });
   updateValuation();
 }
+let e16LookupRequest=0;
+async function findE16Addresses(){
+  const postcode=$('#e16postcode').value.trim().toUpperCase().replace(/\s+/g,'');
+  const status=$('#e16addressStatus');
+  const select=$('#e16address');
+  const button=$('#findE16Address');
+  select.replaceChildren(new Option('Select your property',''));
+  select.disabled=true;
+  $('#e16selected').textContent='';
+  if(!/^E16[0-9][A-Z]{2}$/.test(postcode)){
+    status.textContent='Please enter a complete E16 postcode, for example E16 2AL.';
+    return;
+  }
+  const request=++e16LookupRequest;
+  button.disabled=true;
+  status.textContent='Looking up addresses…';
+  try{
+    const response=await fetch(`/api/addresses?postcode=${encodeURIComponent(postcode)}`,{headers:{Accept:'application/json'}});
+    const data=await response.json();
+    if(request!==e16LookupRequest)return;
+    if(!response.ok)throw new Error(data.error||'Address lookup unavailable.');
+    const addresses=Array.isArray(data.addresses)?data.addresses:[];
+    for(const item of addresses){
+      if(!item.address)continue;
+      select.add(new Option(item.address,String(item.uprn||'')));
+    }
+    select.disabled=select.options.length<=1;
+    status.textContent=`${select.options.length-1} addresses found. Please select your exact property.`;
+  }catch(error){
+    if(request===e16LookupRequest)status.textContent=error.message||'Address lookup failed. Please try again.';
+  }finally{
+    if(request===e16LookupRequest)button.disabled=false;
+  }
+}
+
 function updateValuation(){
   const postcode=$('#e16postcode').value.trim().toUpperCase().replace(/\s+/g,'');
   const value=Number($('#e16value').value), balance=Number($('#e16balance').value), term=Number($('#e16term').value);
