@@ -20,7 +20,7 @@ async function init(){shell();if(supabase){session=(await supabase.auth.getSessi
 
 function renderValuation(){
   $('#main').innerHTML=`<section class="section"><div class="eyebrow">E16 PILOT</div><h2>Property value & LTV calculator</h2>
-  <p>For E16 properties only. Enter your own estimated property value and outstanding mortgage balance. This version does not claim to provide an automated property valuation.</p>
+  <p>For E16 properties only. Enter your own estimated property value and outstanding mortgage balance. Select your address to retrieve an indicative automated valuation, or enter your own estimate.</p>
   <div class="filters ltv-fields">
   <label>Postcode<input id="e16postcode" placeholder="E16 2AL" maxlength="10" autocomplete="postal-code" /></label>
   <div class="address-lookup" style="grid-column:1/-1;display:flex;gap:12px;align-items:end;flex-wrap:wrap">
@@ -28,7 +28,7 @@ function renderValuation(){
     <span id="e16addressStatus" role="status" aria-live="polite">Enter your postcode and find your address.</span>
   </div>
   <label style="grid-column:1/-1">Select your property<select id="e16address" disabled><option value="">Find addresses first</option></select></label>
-  <p id="e16selected" class="muted" style="grid-column:1/-1" aria-live="polite"></p>
+  <p id="e16selected" class="muted" style="grid-column:1/-1" aria-live="polite"></p><p id="e16valuationStatus" class="muted" style="grid-column:1/-1" role="status" aria-live="polite">Select an address to request a valuation.</p>
   <label>Estimated property value (£)<input id="e16value" type="number" min="1" value="500000" /></label>
   <label>Mortgage outstanding (£)<input id="e16balance" type="number" min="0" value="320000" /></label>
   <label>Remaining term (years)<input id="e16term" type="number" min="1" max="40" value="25" /></label>
@@ -37,22 +37,43 @@ function renderValuation(){
   <p class="muted">Indicative only. Rates currently represent a stored purchase scenario, not personalised remortgage quotations. Lender valuations, fees, eligibility and early repayment charges may differ. No customer details are stored by this calculator.</p></section>`;
   ['e16postcode','e16value','e16balance','e16term'].forEach(id=>$('#'+id).addEventListener('input',updateValuation));
   $('#findE16Address').addEventListener('click',findE16Addresses);
-  $('#e16address').addEventListener('change',()=>{
+  $('#e16address').addEventListener('change',async()=>{
     const selected=$('#e16address').selectedOptions[0];
-    $('#e16selected').textContent=selected?.value ? `Selected: ${selected.textContent} · UPRN: ${selected.value}` : '';
+    const uprn=selected?.value||'';
+    $('#e16selected').textContent=uprn ? `Selected: ${selected.textContent} · UPRN: ${uprn}` : '';
+    const request=++e16ValuationRequest;
+    const status=$('#e16valuationStatus');
+    if(!uprn){status.textContent='Select an address to request a valuation.';return;}
+    status.textContent='Retrieving indicative property valuation…';
+    try{
+      const response=await fetch(`/api/valuation?uprn=${encodeURIComponent(uprn)}`,{headers:{Accept:'application/json'}});
+      const data=await response.json();
+      if(request!==e16ValuationRequest)return;
+      if(!response.ok)throw new Error(data.error||'Valuation unavailable.');
+      const value=Number(data?.property?.value?.sale?.property_value);
+      if(!Number.isFinite(value)||value<=0)throw new Error('No valuation available for this property.');
+      $('#e16value').value=String(value);
+      status.textContent=`Chimnie indicative valuation: ${money(value)}. You can adjust this estimate manually.`;
+      updateValuation();
+    }catch(error){
+      if(request===e16ValuationRequest)status.textContent=`${error.message||'Valuation unavailable.'} Enter your own estimated value below.`;
+    }
   });
   $('#e16postcode').addEventListener('input',()=>{
     e16LookupRequest++;
+    e16ValuationRequest++;
     const select=$('#e16address');
     select.replaceChildren(new Option('Find addresses first',''));
     select.disabled=true;
     $('#e16selected').textContent='';
+    $('#e16valuationStatus').textContent='Select an address to request a valuation.';
     $('#e16addressStatus').textContent='Click Find my address to search.';
     $('#findE16Address').disabled=false;
   });
   updateValuation();
 }
 let e16LookupRequest=0;
+let e16ValuationRequest=0;
 async function findE16Addresses(){
   const postcode=$('#e16postcode').value.trim().toUpperCase().replace(/\s+/g,'');
   const status=$('#e16addressStatus');
@@ -61,6 +82,8 @@ async function findE16Addresses(){
   select.replaceChildren(new Option('Select your property',''));
   select.disabled=true;
   $('#e16selected').textContent='';
+  e16ValuationRequest++;
+  $('#e16valuationStatus').textContent='Select an address to request a valuation.';
   if(!/^E16[0-9][A-Z]{2}$/.test(postcode)){
     status.textContent='Please enter a complete E16 postcode, for example E16 2AL.';
     return;
