@@ -17,3 +17,8 @@
 .alerts-info{padding:16px;background:#f1f5f1;border-left:4px solid #c8ad78;color:#52686b;font-size:13px;line-height:1.6}
 .alerts-form>.primary{justify-self:start}.alerts-form #alertsStatus{margin:0;color:#17615d;font-weight:650}
 @media(max-width:600px){.alerts-form{padding:18px}.alerts-grid{grid-template-columns:1fr}.nav{flex-wrap:wrap;gap:12px}nav{flex-wrap:wrap;justify-content:flex-start}}
+
+/* Verified registration additions */
+.alerts-privacy{display:flex;gap:10px;align-items:flex-start;line-height:1.6;margin:18px 0}
+.alerts-privacy input{width:auto;margin:2px 0 0;flex-shrink:0}
+.alerts-form button:disabled{opacity:.6;cursor:wait}
