@@ -1,0 +1,21 @@
+# Environment variables and secrets
+.env*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Node.js
+node_modules/
+dist/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Local data files
+e16-sales-import.csv
