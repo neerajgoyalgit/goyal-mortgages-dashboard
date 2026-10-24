@@ -9,8 +9,8 @@ const money=n=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',ma
 let rates=[],history=[],session=null,tab='public',sort='rate';
 function repayment(principal,annual,years){let r=annual/1200,n=years*12;return r?principal*r/(1-Math.pow(1+r,-n)):principal/n}
 function kind(p){return /tracker/i.test(p)?'Tracker':/fixed/i.test(p)?'Fixed':'Other'}
-function shell(){ $('#app').innerHTML=`<header><div class="nav"><div class="brand"><div class="mark">GM</div><div><strong>GOYAL MORTGAGES</strong><small>Making mortgages clearer</small></div></div><nav><button id="publicNav" class="navlink">Compare rates</button><button id="valuationNav" class="navlink">E16 LTV calculator</button><button id="adminNav" class="navlink">Admin</button></nav></div></header><main id="main"></main><footer><div><strong>Goyal Mortgages</strong><p>For information only. Rates may change and are not guaranteed. Eligibility, lending criteria, fees and affordability checks apply. APRC and full product terms are not yet available in this comparison.</p><p>Your home may be repossessed if you do not keep up repayments on your mortgage.</p><p>Regulatory status and required firm disclosures must be verified before public launch. This site does not currently provide personalised mortgage advice.</p></div></footer>`;$('#publicNav').onclick=()=>{tab='public';render()};$('#adminNav').onclick=()=>{tab='admin';render()};$('#valuationNav').onclick=()=>{tab='valuation';render()}}
-function render(){document.querySelectorAll('.navlink').forEach(x=>x.classList.toggle('active',(x.id==='adminNav')===(tab==='admin')));tab==='admin'?renderAdmin():tab==='valuation'?renderValuation():renderPublic()}
+function shell(){ $('#app').innerHTML=`<header><div class="nav"><div class="brand"><div class="mark">GM</div><div><strong>GOYAL MORTGAGES</strong><small>Making mortgages clearer</small></div></div><nav><button id="publicNav" class="navlink">Compare rates</button><button id="valuationNav" class="navlink">E16 LTV calculator</button><button id="alertsNav" class="navlink">Mortgage alerts</button><button id="adminNav" class="navlink">Admin</button></nav></div></header><main id="main"></main><footer><div><strong>Goyal Mortgages</strong><p>For information only. Rates may change and are not guaranteed. Eligibility, lending criteria, fees and affordability checks apply. APRC and full product terms are not yet available in this comparison.</p><p>Your home may be repossessed if you do not keep up repayments on your mortgage.</p><p>Regulatory status and required firm disclosures must be verified before public launch. This site does not currently provide personalised mortgage advice.</p></div></footer>`;$('#publicNav').onclick=()=>{tab='public';render()};$('#adminNav').onclick=()=>{tab='admin';render()};$('#valuationNav').onclick=()=>{tab='valuation';render()};$('#alertsNav').onclick=()=>{tab='alerts';render()}}
+function render(){const ids={public:'publicNav',valuation:'valuationNav',alerts:'alertsNav',admin:'adminNav'};document.querySelectorAll('.navlink').forEach(x=>x.classList.toggle('active',x.id===ids[tab]));tab==='admin'?renderAdmin():tab==='valuation'?renderValuation():tab==='alerts'?renderAlerts():renderPublic()}
 function mortgagePurpose(x){return x.mortgage_purpose==='remortgage'?'remortgage':x.mortgage_purpose==='purchase'||(x.mortgage_purpose==null&&String(x.scenario_key||'').startsWith('purchase_'))?'purchase':'unknown'}
 function eligibleRates(purpose,ltv,type='All'){
   const candidates=rates.filter(x=>mortgagePurpose(x)===purpose&&(type==='All'||kind(x.product_name)===type)&&Number(x.ltv_percent)>=ltv);
@@ -205,4 +205,56 @@ async function showRenewalDashboard(){
   }
   $('#renewalTerm').onchange=refresh;
   await refresh();
+}
+
+// Preview-only design: no network requests or customer data storage.
+// Never embed SUBSCRIPTION_TEST_TOKEN or service-role credentials in browser code.
+function renderAlerts(){
+  $('#main').innerHTML=`<section class="section alerts-page">
+    <div class="eyebrow">MORTGAGE RATE ALERTS · DESIGN PREVIEW</div>
+    <h2>Stay informed about mortgage rates</h2>
+    <p>Explore how a future mortgage alert registration could work. This is a non-submitting preview: no details are saved, and no alerts are activated.</p>
+    <form id="alertsForm" class="alerts-form">
+      <fieldset><legend>Your details</legend><div class="alerts-grid">
+        <label>First name <input name="first_name" autocomplete="given-name" maxlength="100" placeholder="First name" required></label>
+        <label>Surname <input name="surname" autocomplete="family-name" maxlength="100" placeholder="Surname" required></label>
+        <label>Email address <input name="email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required></label>
+        <label>Phone (optional) <input name="phone" type="tel" autocomplete="tel" placeholder="+44..."></label>
+      </div></fieldset>
+      <fieldset><legend>Your mortgage</legend><div class="alerts-grid">
+        <label>Mortgage purpose <select name="mortgage_purpose" id="alertsPurpose"><option value="remortgage">Remortgage</option><option value="purchase">Purchase</option></select></label>
+        <label id="alertsDateLabel">Current deal expiry date <input name="mortgage_date" type="date" required></label>
+        <label>Property value (£) <input name="property_value_gbp" type="number" min="1" step="0.01" placeholder="400000" required></label>
+        <label>Mortgage amount (£) <input name="mortgage_amount_gbp" type="number" min="1" step="0.01" placeholder="250000" required></label>
+      </div><div class="alerts-choice"><span>Preferred lenders</span>
+        <label><input type="checkbox" name="lenders" value="Halifax" checked> Halifax</label>
+        <label><input type="checkbox" name="lenders" value="Nationwide"> Nationwide</label>
+      </div></fieldset>
+      <fieldset><legend>Alert preferences</legend>
+        <label>Notify me about <select name="alert_direction"><option value="decrease">Rate decreases</option><option value="increase">Rate increases</option><option value="both">Both increases and decreases</option></select></label>
+        <div class="alerts-choice"><span>Product types (optional)</span>
+          <label><input type="checkbox" name="product_types" value="Fixed"> Fixed</label>
+          <label><input type="checkbox" name="product_types" value="Tracker"> Tracker</label>
+        </div>
+      </fieldset>
+      <div class="alerts-info" role="note">This is a design preview only. Registration, consent collection and notifications are not enabled. A privacy notice and verified regulatory disclosures are required before public launch.</div>
+      <button class="primary" type="submit">Preview registration</button>
+      <p id="alertsStatus" role="status" aria-live="polite"></p>
+    </form>
+  </section>`;
+  $('#alertsPurpose').onchange=()=>{
+    $('#alertsDateLabel').firstChild.textContent=$('#alertsPurpose').value==='remortgage'?'Current deal expiry date ':'Expected purchase date ';
+  };
+  $('#alertsForm').onsubmit=e=>{
+    e.preventDefault();
+    const f=e.currentTarget;
+    const value=Number(f.elements.property_value_gbp.value);
+    const loan=Number(f.elements.mortgage_amount_gbp.value);
+    const lenders=[...f.querySelectorAll('input[name="lenders"]:checked')];
+    const status=$('#alertsStatus');
+    if(!f.reportValidity())return;
+    if(!lenders.length){status.textContent='Select at least one lender.';return;}
+    if(!(value>0&&loan>0&&loan<=value)){status.textContent='Mortgage amount must be greater than zero and no more than the property value.';return;}
+    status.textContent='Preview validated. No details were submitted or stored, and no alerts were activated.';
+  };
 }

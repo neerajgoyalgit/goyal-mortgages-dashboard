@@ -3,3 +3,17 @@
 .ltv-fields{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:800px){.ltv-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:500px){.ltv-fields{grid-template-columns:1fr}nav{flex-wrap:wrap;justify-content:flex-end;gap:4px}}
 
 .renewal-panel{margin-top:36px;padding:25px;background:white;border:1px solid #e5ebe8;border-radius:12px}.renewal-panel>label{max-width:240px}.renewal-row{display:grid;grid-template-columns:75px minmax(0,1fr) 50px;align-items:center;gap:12px;margin:12px 0;font-size:13px}.renewal-track{height:16px;background:#e5f2ed;border-radius:5px;overflow:hidden}.renewal-fill{height:100%;background:#17615d;border-radius:5px}.renewal-row strong{text-align:right}
+
+/* Mortgage alert registration design preview */
+.alerts-page{max-width:920px}.alerts-page>p{line-height:1.7;max-width:760px}
+.alerts-form{margin-top:28px;padding:28px;background:#fff;border:1px solid #e5ebe8;border-radius:12px;display:grid;gap:24px}
+.alerts-form fieldset{border:0;border-bottom:1px solid #e5ebe8;margin:0;padding:0 0 24px;min-width:0}
+.alerts-form legend{font-size:18px;font-weight:800;color:#173c42;padding:0;margin-bottom:16px}
+.alerts-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.alerts-choice{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:20px;font-size:13px}
+.alerts-choice>span{font-weight:700;color:#4d6569;width:100%}
+.alerts-choice label{display:inline-flex;align-items:center;gap:8px;font-size:13px}
+.alerts-choice input{width:auto;margin:0;accent-color:#17615d}
+.alerts-info{padding:16px;background:#f1f5f1;border-left:4px solid #c8ad78;color:#52686b;font-size:13px;line-height:1.6}
+.alerts-form>.primary{justify-self:start}.alerts-form #alertsStatus{margin:0;color:#17615d;font-weight:650}
+@media(max-width:600px){.alerts-form{padding:18px}.alerts-grid{grid-template-columns:1fr}.nav{flex-wrap:wrap;gap:12px}nav{flex-wrap:wrap;justify-content:flex-start}}
