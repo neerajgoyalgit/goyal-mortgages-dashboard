@@ -63,7 +63,7 @@ function renderPublic(){
 
  <section id="compare" class="section"><div class="section-top"><div><div class="eyebrow">EXPLORE YOUR OPTIONS</div><h2>Compare mortgage rates</h2><p>Choose your purpose and mortgage details. Results use recorded illustrative lender scenarios, not a new quote.</p></div></div>
 
- <div class="filters">
+ <div class="filters compare-filters">
 
  <label>Mortgage purpose<select id="purpose"><option value="remortgage">Remortgage</option><option value="purchase">Purchase</option></select></label>
 
@@ -159,29 +159,21 @@ function renderValuation(){
 
   <p>For E16 properties only. Enter your own estimated property value and outstanding mortgage balance. Select your address to retrieve an indicative automated valuation, or enter your own estimate.</p>
 
-  <div class="filters ltv-fields">
-
-  <label>Postcode<input id="e16postcode" placeholder="E16 2AL" maxlength="10" autocomplete="postal-code" /></label>
-
-  <div class="address-lookup" style="grid-column:1/-1;display:flex;gap:12px;align-items:end;flex-wrap:wrap">
-
-    <button id="findE16Address" class="primary" type="button">Find my address</button>
-
-    <span id="e16addressStatus" role="status" aria-live="polite">Enter your postcode and find your address.</span>
-
-  </div>
-
-  <label style="grid-column:1/-1">Select your property<select id="e16address" disabled><option value="">Find addresses first</option></select></label>
-
-  <p id="e16selected" class="muted" style="grid-column:1/-1" aria-live="polite"></p><p id="e16valuationStatus" class="muted" style="grid-column:1/-1" role="status" aria-live="polite">Select an address to request a valuation.</p>
-
-  <label>Estimated property value (£)<input id="e16value" type="number" min="1" value="500000" /></label>
-
-  <label>Mortgage outstanding (£)<input id="e16balance" type="number" min="0" value="320000" /></label>
-
-  <label>Remaining term (years)<input id="e16term" type="number" min="1" max="40" value="25" /></label>
-
-  </div><div id="e16output" class="notice" aria-live="polite"></div>
+    <div class="filters ltv-fields">
+    <div class="valuation-address-row">
+      <label for="e16postcode">Postcode<input id="e16postcode" placeholder="E16 2AL" maxlength="10" autocomplete="postal-code" /></label>
+      <button id="findE16Address" class="primary" type="button">Find my address</button>
+    </div>
+    <p id="e16addressStatus" class="valuation-status" role="status" aria-live="polite">Enter your postcode and find your address.</p>
+    <label class="valuation-property">Select your property<select id="e16address" disabled><option value="">Find addresses first</option></select></label>
+    <p id="e16selected" class="muted valuation-status" aria-live="polite"></p>
+    <p id="e16valuationStatus" class="muted valuation-status" role="status" aria-live="polite">Select an address to request a valuation.</p>
+    <div class="valuation-financial-fields">
+      <label>Estimated property value (£)<input id="e16value" type="number" min="1" value="500000" /></label>
+      <label>Mortgage outstanding (£)<input id="e16balance" type="number" min="0" value="320000" /></label>
+      <label>Remaining term (years)<input id="e16term" type="number" min="1" max="40" value="25" /></label>
+    </div>
+</div><div id="e16output" class="notice" aria-live="polite"></div>
 
   <h3>Matching recorded mortgage products</h3><div id="e16matches" class="products"></div>
 
