@@ -741,7 +741,7 @@ async function showBookedClients(){
  const main=$('#main');if(!main||!session)return;
  const section=document.createElement('section');section.className='section booked-section';section.id='bookedClientsPanel';
  section.innerHTML=`<div class="eyebrow">PRIVATE ADVISER WORKSPACE</div><h3>Booked clients · Rate rebooking monitor</h3><p>Separate from website visitor registrations. Store booked mortgage products and review rate opportunities. Automatic alerts are not active.</p><form id="bookedClientForm" class="booked-form"></form><h4>Booked mortgage applications</h4><p id="bookedListStatus" role="status"></p><div id="bookedClientsList"></div><div class="booked-actions"><button id="bookedPrev" class="secondary" type="button">Previous</button><span id="bookedPage"></span><button id="bookedNext" class="secondary" type="button">Next</button></div>`;
- main.appendChild(section);bookedForm();await loadBookedClients();
+ main.appendChild(section);bookedForm();await loadBookedClients();await showBrokerOpportunities(section);
 }
 async function loadBookedClients(){
  const status=$('#bookedListStatus'),list=$('#bookedClientsList');if(!status||!list)return;
@@ -761,4 +761,41 @@ async function loadBookedClients(){
   $('#bookedPrev').onclick=()=>{bookedClientPage--;loadBookedClients();};
   $('#bookedNext').onclick=()=>{bookedClientPage++;loadBookedClients();};
  }catch(e){status.textContent=e.message;list.replaceChildren();}
+}
+
+
+// Adviser-only preliminary rate comparisons; these are NOT verified rebooking offers.
+let brokerOpportunityPage=1;
+async function showBrokerOpportunities(section){
+ const panel=document.createElement('div');panel.className='booked-opportunities';
+ panel.innerHTML=`<h4>Potential rate improvements · Adviser review</h4><p>Preliminary rate-only matches, prioritising the booked lender. Rates may be unverified or ineligible. Check lender criteria, product period, fees, and switching rules before taking action. No alerts are sent.</p><p id="brokerOpportunityStatus" role="status"></p><div id="brokerOpportunityList"></div><div class="booked-actions"><button type="button" class="secondary" id="brokerOpportunityPrev">Previous</button><span id="brokerOpportunityPage"></span><button type="button" class="secondary" id="brokerOpportunityNext">Next</button><button type="button" class="secondary" id="brokerOpportunityRefresh">Refresh matches</button></div>`;
+ section.appendChild(panel);
+ $('#brokerOpportunityPrev').onclick=()=>{brokerOpportunityPage--;loadBrokerOpportunities();};
+ $('#brokerOpportunityNext').onclick=()=>{brokerOpportunityPage++;loadBrokerOpportunities();};
+ $('#brokerOpportunityRefresh').onclick=()=>loadBrokerOpportunities();
+ await loadBrokerOpportunities();
+}
+async function loadBrokerOpportunities(){
+ const status=$('#brokerOpportunityStatus'),list=$('#brokerOpportunityList');
+ if(!status||!list)return;
+ status.textContent='Checking preliminary matches…';
+ try{
+  const {data:{session:active}}=await supabase.auth.getSession();
+  if(!active?.access_token)throw Error('Please sign in again.');
+  const response=await fetch('/api/broker-opportunities?page='+brokerOpportunityPage,{headers:{Authorization:'Bearer '+active.access_token}});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||'Unable to retrieve matches.');
+  status.textContent=result.total+' preliminary rate match(es). These are not verified offers.';
+  list.replaceChildren();
+  if(!result.candidates.length)list.textContent='No lower-rate candidates in the current data.';
+  for(const item of result.candidates){
+   const row=document.createElement('article');row.className='booked-client-row';
+   const kind=item.same_lender?'Same lender — priority 1':'Other lender — priority 2';
+   row.innerHTML=`<div><strong>${esc(item.client_name)}</strong><p>${esc(kind)} · ${esc(item.booked_lender)} ${Number(item.booked_rate_percent).toFixed(2)}% → ${esc(item.candidate_lender)} ${Number(item.candidate_rate_percent).toFixed(2)}%</p><p>${esc(item.candidate_product_name)} · Product fee: ${item.candidate_product_fee_gbp==null?'Unknown':money(item.candidate_product_fee_gbp)} · ${Number(item.rate_reduction_percentage_points).toFixed(2)} percentage points lower</p><small>75% is not assumed: client LTV ${Number(item.client_ltv_percent).toFixed(2)}% · Product status: ${esc(item.product_status||'Unknown')} · ${esc(item.review_status.replaceAll('_',' '))} · Observed: ${item.observed_at?esc(new Date(item.observed_at).toLocaleDateString('en-GB')):'Unknown'}</small></div>`;
+   list.appendChild(row);
+  }
+  $('#brokerOpportunityPage').textContent='Page '+brokerOpportunityPage;
+  $('#brokerOpportunityPrev').disabled=brokerOpportunityPage===1;
+  $('#brokerOpportunityNext').disabled=!result.has_more;
+ }catch(error){status.textContent=error.message;list.replaceChildren();}
 }
