@@ -143,7 +143,7 @@ function showResults(){
 
 }
 
-async function renderAdmin(){if(!supabase){$('#main').innerHTML='<section class="section"><h2>Admin configuration required</h2><p>Add the Supabase URL and publishable key to your environment settings.</p></section>';return}if(!session){$('#main').innerHTML=`<section class="login"><div class="eyebrow">PRIVATE ACCESS</div><h2>Admin sign in</h2><p>Only authorised administrators can manage mortgage-rate records.</p><form id="login"><label>Email<input type="email" id="email" required/></label><label>Password<input type="password" id="password" required/></label><button class="primary" type="submit">Sign in</button><p id="loginError" role="alert"></p></form></section>`;$('#login').onsubmit=async e=>{e.preventDefault();let {error}=await supabase.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});if(error)$('#loginError').textContent=error.message;else{session=(await supabase.auth.getSession()).data.session;renderAdmin()}};return}let {data:{user}}=await supabase.auth.getUser();let {data:admin}=await supabase.from('dashboard_admins').select('user_id').eq('user_id',user?.id||'').maybeSingle();if(!admin){$('#main').innerHTML='<section class="section"><h2>Access restricted</h2><p>Your account is authenticated but has not been granted dashboard administrator access.</p><button id="logout" class="secondary">Sign out</button></section>';$('#logout').onclick=logout;return}$('#main').innerHTML=`<section class="section"><div class="adminhead"><div><div class="eyebrow">ADMIN CONSOLE</div><h2>Rate management</h2><p>Signed in as ${esc(user.email)}</p></div><button id="logout" class="secondary">Sign out</button></div><div class="stats adminstats"><div class="stat"><span>Current products</span><b>${rates.length}</b></div><div class="stat"><span>History records</span><b>${history.length}</b></div></div><h3>Add a mortgage rate</h3><form id="add" class="adminform"><label>Lender<input name="lender" required/></label><label>Product name<input name="product_name" required/></label><label>Scenario key<input name="scenario_key" value="purchase_400000_30y_repayment" required/></label><label>LTV %<input name="ltv_percent" type="number" min="1" max="100" step="0.01" required/></label><label>Rate %<input name="rate_percent" type="number" min="0" step="0.0001" required/></label><label>Product fee £<input name="product_fee_gbp" type="number" min="0" step="0.01"/></label><button class="primary" type="submit">Add rate</button><p id="addStatus" role="status"></p></form><h3>Stored products</h3><div class="adminrows">${rates.map(x=>`<div class="adminrow"><span>${esc(x.lender)} · ${esc(x.product_name)} · ${Number(x.ltv_percent)}% LTV</span><strong>${Number(x.rate_percent).toFixed(2)}%</strong></div>`).join('')}</div></section>`;await showRenewalDashboard();await showAdminCustomers();$('#logout').onclick=logout;$('#add').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target),payload=Object.fromEntries(f);for(let k of ['ltv_percent','rate_percent','product_fee_gbp'])payload[k]=payload[k]===''?null:Number(payload[k]);let {error}=await supabase.from('mortgage_rates').insert(payload);$('#addStatus').textContent=error?'Could not save: '+error.message:'Rate saved';if(!error){await load();renderAdmin()}}}
+async function renderAdmin(){if(!supabase){$('#main').innerHTML='<section class="section"><h2>Admin configuration required</h2><p>Add the Supabase URL and publishable key to your environment settings.</p></section>';return}if(!session){$('#main').innerHTML=`<section class="login"><div class="eyebrow">PRIVATE ACCESS</div><h2>Admin sign in</h2><p>Only authorised administrators can manage mortgage-rate records.</p><form id="login"><label>Email<input type="email" id="email" required/></label><label>Password<input type="password" id="password" required/></label><button class="primary" type="submit">Sign in</button><p id="loginError" role="alert"></p></form></section>`;$('#login').onsubmit=async e=>{e.preventDefault();let {error}=await supabase.auth.signInWithPassword({email:$('#email').value,password:$('#password').value});if(error)$('#loginError').textContent=error.message;else{session=(await supabase.auth.getSession()).data.session;renderAdmin()}};return}let {data:{user}}=await supabase.auth.getUser();let {data:admin}=await supabase.from('dashboard_admins').select('user_id').eq('user_id',user?.id||'').maybeSingle();if(!admin){$('#main').innerHTML='<section class="section"><h2>Access restricted</h2><p>Your account is authenticated but has not been granted dashboard administrator access.</p><button id="logout" class="secondary">Sign out</button></section>';$('#logout').onclick=logout;return}$('#main').innerHTML=`<section class="section"><div class="adminhead"><div><div class="eyebrow">ADMIN CONSOLE</div><h2>Rate management</h2><p>Signed in as ${esc(user.email)}</p></div><button id="logout" class="secondary">Sign out</button></div><div class="stats adminstats"><div class="stat"><span>Current products</span><b>${rates.length}</b></div><div class="stat"><span>History records</span><b>${history.length}</b></div></div><h3>Add a mortgage rate</h3><form id="add" class="adminform"><label>Lender<input name="lender" required/></label><label>Product name<input name="product_name" required/></label><label>Scenario key<input name="scenario_key" value="purchase_400000_30y_repayment" required/></label><label>LTV %<input name="ltv_percent" type="number" min="1" max="100" step="0.01" required/></label><label>Rate %<input name="rate_percent" type="number" min="0" step="0.0001" required/></label><label>Product fee £<input name="product_fee_gbp" type="number" min="0" step="0.01"/></label><button class="primary" type="submit">Add rate</button><p id="addStatus" role="status"></p></form><h3>Stored products</h3><div class="adminrows">${rates.map(x=>`<div class="adminrow"><span>${esc(x.lender)} · ${esc(x.product_name)} · ${Number(x.ltv_percent)}% LTV</span><strong>${Number(x.rate_percent).toFixed(2)}%</strong></div>`).join('')}</div></section>`;await showRenewalDashboard();await showAdminCustomers();await showBookedClients();$('#logout').onclick=logout;$('#add').onsubmit=async e=>{e.preventDefault();let f=new FormData(e.target),payload=Object.fromEntries(f);for(let k of ['ltv_percent','rate_percent','product_fee_gbp'])payload[k]=payload[k]===''?null:Number(payload[k]);let {error}=await supabase.from('mortgage_rates').insert(payload);$('#addStatus').textContent=error?'Could not save: '+error.message:'Rate saved';if(!error){await load();renderAdmin()}}}
 
 async function logout(){await supabase.auth.signOut();session=null;renderAdmin()}
 
@@ -695,4 +695,70 @@ async function showAdminCustomers(page=1){
   }catch(error){
     if(document.contains(panel))status.textContent=error.message||'Unable to load customers.';
   }
+}
+
+
+// Adviser-only booked mortgage clients. Never query broker_clients directly in the browser.
+let bookedClientPage=1;
+async function brokerRequest(method,body){
+ const {data:{session:active}}=await supabase.auth.getSession();
+ if(!active?.access_token)throw Error('Please sign in again.');
+ const response=await fetch('/api/broker-clients'+(method==='GET'?'?page='+bookedClientPage:''),{
+  method,headers:{Authorization:'Bearer '+active.access_token,...(body?{'Content-Type':'application/json'}:{})},
+  ...(body?{body:JSON.stringify(body)}:{})
+ });
+ const result=await response.json().catch(()=>({}));
+ if(!response.ok)throw Error(result.error||'Request failed.');return result;
+}
+const bookedFields=[
+ ['client_name','Client name','text',true],['client_email','Email (optional)','email'],['client_phone','Phone (optional)','tel'],
+ ['lender','Booked lender','text',true],['booked_product_name','Booked product name','text',true],
+ ['booked_rate_percent','Booked interest rate (%)','number',true],['booked_product_fee_gbp','Booked product fee (£)','number'],
+ ['mortgage_amount_gbp','Mortgage amount (£)','number',true],['property_value_gbp','Property value (£)','number',true],
+ ['mortgage_purpose','Mortgage purpose','select',true,['purchase','remortgage','product_transfer','buy_to_let','other']],
+ ['repayment_type','Repayment type','select',false,['repayment','interest_only','part_and_part']],
+ ['rate_type','Rate type','select',false,['fixed','tracker','variable','other']],
+ ['initial_period_months','Initial rate period (months)','number'],
+ ['application_status','Application status','select',true,['submitted','offered','exchange','completed','cancelled']],
+ ['application_reference','Application reference','text'],['offer_expiry_date','Offer expiry','date'],
+ ['expected_completion_date','Expected completion','date'],['notes','Private notes','text']
+];
+let editingBookedId=null;
+function bookedForm(client={}){
+ editingBookedId=client.id||null;
+ const form=$('#bookedClientForm');
+ form.innerHTML=`<h4>${editingBookedId?'Edit booked mortgage':'Add booked mortgage'}</h4><div class="booked-grid">${bookedFields.map(([name,label,type,required,options])=>`<label>${esc(label)}${type==='select'?`<select name="${name}" ${required?'required':''}><option value="">Select</option>${options.map(o=>`<option value="${o}" ${client[name]===o?'selected':''}>${esc(o.replaceAll('_',' '))}</option>`).join('')}</select>`:`<input name="${name}" type="${type}" ${required?'required':''} ${type==='number'?'min="0" step="any"':''} value="${esc(client[name]??'')}"/>`}</label>`).join('')}</div><label class="booked-checkbox"><input name="monitoring_enabled" type="checkbox" ${client.monitoring_enabled!==false?'checked':''}/> Monitor this booking (alerts not yet active)</label><div class="booked-actions"><button class="primary" type="submit">${editingBookedId?'Save changes':'Save booked mortgage'}</button><button id="cancelBookedEdit" class="secondary" type="button">Clear form</button></div><p id="bookedSaveStatus" role="status"></p>`;
+ $('#cancelBookedEdit').onclick=()=>bookedForm();
+ form.onsubmit=async e=>{
+  e.preventDefault();const status=$('#bookedSaveStatus');status.textContent='Saving…';
+  const data=Object.fromEntries(new FormData(form));data.monitoring_enabled=form.elements.monitoring_enabled.checked;
+  for(const name of ['booked_rate_percent','booked_product_fee_gbp','mortgage_amount_gbp','property_value_gbp','initial_period_months'])data[name]=data[name]===''?null:Number(data[name]);
+  for(const name of ['repayment_type','rate_type','application_reference','client_email','client_phone','offer_expiry_date','expected_completion_date','notes'])if(data[name]==='')data[name]=null;
+  try{await brokerRequest(editingBookedId?'PATCH':'POST',editingBookedId?{id:editingBookedId,client:data}:{client:data});status.textContent='Saved successfully.';await loadBookedClients();bookedForm();$('#bookedSaveStatus').textContent='Saved successfully.';}catch(error){status.textContent=error.message;}
+ };
+}
+async function showBookedClients(){
+ const main=$('#main');if(!main||!session)return;
+ const section=document.createElement('section');section.className='section booked-section';section.id='bookedClientsPanel';
+ section.innerHTML=`<div class="eyebrow">PRIVATE ADVISER WORKSPACE</div><h3>Booked clients · Rate rebooking monitor</h3><p>Separate from website visitor registrations. Store booked mortgage products and review rate opportunities. Automatic alerts are not active.</p><form id="bookedClientForm" class="booked-form"></form><h4>Booked mortgage applications</h4><p id="bookedListStatus" role="status"></p><div id="bookedClientsList"></div><div class="booked-actions"><button id="bookedPrev" class="secondary" type="button">Previous</button><span id="bookedPage"></span><button id="bookedNext" class="secondary" type="button">Next</button></div>`;
+ main.appendChild(section);bookedForm();await loadBookedClients();
+}
+async function loadBookedClients(){
+ const status=$('#bookedListStatus'),list=$('#bookedClientsList');if(!status||!list)return;
+ status.textContent='Loading booked mortgages…';
+ try{
+  const result=await brokerRequest('GET');status.textContent=result.total+' booked mortgage record(s).';
+  list.replaceChildren();
+  if(!result.clients.length)list.textContent='No booked mortgages yet. Add your first booking above.';
+  for(const client of result.clients){
+   const card=document.createElement('div');card.className='booked-client-row';
+   const ltv=client.property_value_gbp>0?(100*client.mortgage_amount_gbp/client.property_value_gbp).toFixed(1)+'%':'Unknown';
+   card.innerHTML=`<div><strong>${esc(client.client_name)}</strong><p>${esc(client.lender)} · ${esc(client.booked_product_name)} · ${Number(client.booked_rate_percent).toFixed(2)}% · ${esc(client.application_status)}</p><small>${money(client.mortgage_amount_gbp)} mortgage · ${ltv} LTV · Expected completion: ${esc(client.expected_completion_date||'Not entered')} · Monitoring: ${client.monitoring_enabled?'selected':'off'}</small></div>`;
+   const btn=document.createElement('button');btn.type='button';btn.className='secondary';btn.textContent='Edit';btn.onclick=()=>{bookedForm(client);$('#bookedClientForm').scrollIntoView({behavior:'smooth',block:'start'});};card.appendChild(btn);list.appendChild(card);
+  }
+  $('#bookedPage').textContent='Page '+bookedClientPage;
+  $('#bookedPrev').disabled=bookedClientPage===1;$('#bookedNext').disabled=!result.has_more;
+  $('#bookedPrev').onclick=()=>{bookedClientPage--;loadBookedClients();};
+  $('#bookedNext').onclick=()=>{bookedClientPage++;loadBookedClients();};
+ }catch(e){status.textContent=e.message;list.replaceChildren();}
 }

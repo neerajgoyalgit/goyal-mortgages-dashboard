@@ -131,3 +131,6 @@
   min-height: 0;
   height: auto;
 }
+
+/* Private booked-client workspace */
+.booked-section{margin-top:24px}.booked-form{margin:18px 0;padding:20px;border:1px solid #d9e4e1;border-radius:12px;background:#fff}.booked-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.booked-grid label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600}.booked-grid input,.booked-grid select{width:100%;min-width:0;padding:10px;border:1px solid #c8d4d1;border-radius:8px;background:white}.booked-checkbox{display:flex;align-items:center;gap:8px;margin:18px 0}.booked-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}.booked-client-row{display:flex;justify-content:space-between;align-items:center;gap:16px;border:1px solid #dce6e3;border-radius:10px;background:white;padding:14px;margin:10px 0}.booked-client-row p{margin:6px 0}.booked-client-row small{color:#566a70}@media(max-width:650px){.booked-client-row{align-items:flex-start;flex-direction:column}}
