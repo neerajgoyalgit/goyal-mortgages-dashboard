@@ -37,7 +37,12 @@ export default async function handler(req,res){
     },preferences:{product_types:preferences?.product_types||[],alert_direction:preferences?.alert_direction||null,
       alerts_enabled:false}});
   }catch(error){
-    console.error('Customer dashboard retrieval failed:', error?.code || error?.name || 'unknown');
+    console.error('Customer dashboard retrieval failed:', {
+      code: error?.code,
+      message: error?.message,
+     details: error?.details,
+     hint: error?.hint
+    });
     return res.status(500).json({error:'Could not load your saved registration.'});
   }
 }
