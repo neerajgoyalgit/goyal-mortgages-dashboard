@@ -741,7 +741,7 @@ async function showBookedClients(){
  const main=$('#main');if(!main||!session)return;
  const section=document.createElement('section');section.className='section booked-section';section.id='bookedClientsPanel';
  section.innerHTML=`<div class="eyebrow">PRIVATE ADVISER WORKSPACE</div><h3>Booked clients · Rate rebooking monitor</h3><p>Separate from website visitor registrations. Store booked mortgage products and review rate opportunities. Automatic alerts are not active.</p><form id="bookedClientForm" class="booked-form"></form><h4>Booked mortgage applications</h4><p id="bookedListStatus" role="status"></p><div id="bookedClientsList"></div><div class="booked-actions"><button id="bookedPrev" class="secondary" type="button">Previous</button><span id="bookedPage"></span><button id="bookedNext" class="secondary" type="button">Next</button></div>`;
- main.appendChild(section);bookedForm();await loadBookedClients();await showBrokerOpportunities(section);
+ main.appendChild(section);bookedForm();await loadBookedClients();await showBrokerOpportunities(section);await showSavedBrokerOpportunities(section);
 }
 async function loadBookedClients(){
  const status=$('#bookedListStatus'),list=$('#bookedClientsList');if(!status||!list)return;
@@ -801,4 +801,41 @@ async function loadBrokerOpportunities(){
   $('#brokerOpportunityPrev').disabled=brokerOpportunityPage===1;
   $('#brokerOpportunityNext').disabled=!result.has_more;
  }catch(error){status.textContent=error.message;list.replaceChildren();}
+}
+
+// Step 4F: saved adviser review queue (manual scan, no outbound alerts).
+async function showSavedBrokerOpportunities(section){
+ const panel=document.createElement('div');panel.className='booked-opportunities';
+ panel.innerHTML='<h4>Saved adviser review queue</h4><p>Only recently verified product-data matches are saved. Eligibility and switching require adviser checks. No emails or automatic rebookings.</p><div class="booked-actions"><button type="button" id="brokerSavedScan">Scan for new opportunities</button><button type="button" class="secondary" id="brokerSavedRefresh">Refresh saved queue</button></div><p id="brokerSavedStatus" role="status"></p><div id="brokerSavedList"></div>';
+ section.appendChild(panel);
+ const request=async(method,body)=>{
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session?.access_token)throw Error('Please sign in again.');
+  const response=await fetch('/api/broker-saved-opportunities',{method,headers:{Authorization:'Bearer '+session.access_token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||'Request failed.');
+  return result;
+ };
+ const status=$('#brokerSavedStatus'),list=$('#brokerSavedList');
+ const refresh=async()=>{
+  try{
+   const result=await request('GET');list.replaceChildren();
+   status.textContent=result.opportunities.length+' saved opportunity/opportunities.';
+   if(!result.opportunities.length)list.textContent='No verified product-data matches have been saved yet.';
+   for(const item of result.opportunities){
+    const article=document.createElement('article');article.className='booked-client-row';
+    const detail=document.createElement('div');
+    const title=document.createElement('strong');title.textContent=(item.same_lender?'Same lender: ':'Other lender: ')+item.candidate_lender;
+    const desc=document.createElement('p');desc.textContent=`${item.candidate_product_name} · ${Number(item.booked_rate_percent_at_detection).toFixed(2)}% → ${Number(item.candidate_rate_percent).toFixed(2)}% · Fee: ${item.candidate_product_fee_gbp==null?'Unknown':money(item.candidate_product_fee_gbp)}`;
+    const select=document.createElement('select');select.setAttribute('aria-label','Adviser review status');
+    for(const value of ['new','reviewing','switch_requested','rebooked','not_suitable','dismissed']){const opt=document.createElement('option');opt.value=value;opt.textContent=value.replaceAll('_',' ');select.appendChild(opt);}
+    select.value=item.status;
+    select.onchange=async()=>{try{await request('PATCH',{id:item.id,status:select.value});status.textContent='Review status saved.';}catch(error){status.textContent=error.message;select.value=item.status;}};
+    detail.append(title,desc,select);article.appendChild(detail);list.appendChild(article);
+   }
+  }catch(error){status.textContent=error.message;}
+ };
+ $('#brokerSavedScan').onclick=async()=>{try{status.textContent='Scanning eligible candidates…';const result=await request('POST');await refresh();status.textContent=`Scan complete: ${result.scanned} candidate(s), ${result.inserted} newly saved, ${result.already_seen} already saved. No emails sent.`;}catch(error){status.textContent=error.message;}};
+ $('#brokerSavedRefresh').onclick=refresh;
+ await refresh();
 }
