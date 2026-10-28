@@ -766,28 +766,31 @@ async function loadBookedClients(){
 
 // Adviser-only preliminary rate comparisons; these are NOT verified rebooking offers.
 let brokerOpportunityPage=1;
+let brokerOpportunityLenderFilter='same';
 async function showBrokerOpportunities(section){
  const panel=document.createElement('div');panel.className='booked-opportunities';
- panel.innerHTML=`<h4>Potential rate improvements · Adviser review</h4><p>Preliminary rate-only matches, prioritising the booked lender. Rates may be unverified or ineligible. Check lender criteria, product period, fees, and switching rules before taking action. No alerts are sent.</p><p id="brokerOpportunityStatus" role="status"></p><div id="brokerOpportunityList"></div><div class="booked-actions"><button type="button" class="secondary" id="brokerOpportunityPrev">Previous</button><span id="brokerOpportunityPage"></span><button type="button" class="secondary" id="brokerOpportunityNext">Next</button><button type="button" class="secondary" id="brokerOpportunityRefresh">Refresh matches</button></div>`;
+ panel.innerHTML=`<h4>Potential rate improvements · Adviser review</h4><p>Preliminary rate-only matches, prioritising the booked lender. Rates may be unverified or ineligible. Check lender criteria, product period, fees, and switching rules before taking action. No alerts are sent.</p><div class="booked-actions" role="group" aria-label="Lender comparison filter"><button type="button" class="secondary" id="brokerFilterSame">Same lender</button><button type="button" class="secondary" id="brokerFilterOther">Other lenders</button><button type="button" class="secondary" id="brokerFilterAll">All</button></div><p id="brokerOpportunityStatus" role="status"></p><div id="brokerOpportunityList"></div><div class="booked-actions"><button type="button" class="secondary" id="brokerOpportunityPrev">Previous</button><span id="brokerOpportunityPage"></span><button type="button" class="secondary" id="brokerOpportunityNext">Next</button><button type="button" class="secondary" id="brokerOpportunityRefresh">Refresh matches</button></div>`;
  section.appendChild(panel);
  $('#brokerOpportunityPrev').onclick=()=>{brokerOpportunityPage--;loadBrokerOpportunities();};
  $('#brokerOpportunityNext').onclick=()=>{brokerOpportunityPage++;loadBrokerOpportunities();};
  $('#brokerOpportunityRefresh').onclick=()=>loadBrokerOpportunities();
+ for(const [key,id] of [['same','brokerFilterSame'],['other','brokerFilterOther'],['all','brokerFilterAll']])$('#'+id).onclick=()=>{brokerOpportunityLenderFilter=key;brokerOpportunityPage=1;loadBrokerOpportunities();};
  await loadBrokerOpportunities();
 }
 async function loadBrokerOpportunities(){
  const status=$('#brokerOpportunityStatus'),list=$('#brokerOpportunityList');
  if(!status||!list)return;
  status.textContent='Checking preliminary matches…';
+ for(const [key,id] of [['same','brokerFilterSame'],['other','brokerFilterOther'],['all','brokerFilterAll']]){const button=$('#'+id);if(button){button.setAttribute('aria-pressed',String(brokerOpportunityLenderFilter===key));button.disabled=brokerOpportunityLenderFilter===key;}}
  try{
   const {data:{session:active}}=await supabase.auth.getSession();
   if(!active?.access_token)throw Error('Please sign in again.');
-  const response=await fetch('/api/broker-opportunities?page='+brokerOpportunityPage,{headers:{Authorization:'Bearer '+active.access_token}});
+  const response=await fetch('/api/broker-opportunities?page='+brokerOpportunityPage+'&lender_filter='+brokerOpportunityLenderFilter,{headers:{Authorization:'Bearer '+active.access_token}});
   const result=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(result.error||'Unable to retrieve matches.');
   status.textContent=result.total+' preliminary rate match(es). These are not verified offers.';
   list.replaceChildren();
-  if(!result.candidates.length)list.textContent='No lower-rate candidates in the current data.';
+  if(!result.candidates.length)list.textContent=brokerOpportunityLenderFilter==='same'?'No lower-rate same-lender candidates in the current data.':'No lower-rate candidates in the selected category.';
   for(const item of result.candidates){
    const row=document.createElement('article');row.className='booked-client-row';
    const kind=item.same_lender?'Same lender — priority 1':'Other lender — priority 2';

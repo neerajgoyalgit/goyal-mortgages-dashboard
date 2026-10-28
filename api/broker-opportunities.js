@@ -24,14 +24,18 @@ export default async function handler(req, res) {
     if (!admin) return send(res, 403, { error: 'Administrator access required.' });
     const page = Number(req.query.page || 1);
     if (!Number.isSafeInteger(page) || page < 1 || page > 10000) return send(res, 400, { error: 'Invalid page.' });
+    const lenderFilter = String(req.query.lender_filter || 'all');
+    if (!['same', 'other', 'all'].includes(lenderFilter)) return send(res, 400, { error: 'Invalid lender filter.' });
     const from = (page - 1) * 20;
-    const { data, error, count } = await db.from('broker_rate_review_candidates')
+    let query = db.from('broker_rate_review_candidates')
       .select('broker_client_id,client_name,booked_lender,booked_product_name,booked_rate_percent,mortgage_amount_gbp,client_ltv_percent,application_status,expected_completion_date,candidate_rate_id,candidate_lender,candidate_product_name,candidate_rate_percent,candidate_product_fee_gbp,candidate_max_ltv_percent,product_status,verified_at,observed_at,same_lender,rate_reduction_percentage_points,review_priority,review_status', { count: 'exact' })
       .order('review_priority', { ascending: true })
       .order('candidate_rate_percent', { ascending: true })
       .range(from, from + 19);
+    if (lenderFilter !== 'all') query = query.eq('same_lender', lenderFilter === 'same');
+    const { data, error, count } = await query;
     if (error) throw error;
-    return send(res, 200, { candidates: data || [], page, total: count || 0, has_more: from + (data || []).length < (count || 0), informational_only: true });
+    return send(res, 200, { candidates: data || [], page, total: count || 0, has_more: from + (data || []).length < (count || 0), informational_only: true, lender_filter: lenderFilter });
   } catch (error) {
     console.error('Broker opportunity API error:', error?.code || error?.name);
     return send(res, 500, { error: 'Unable to load rate review candidates.' });
