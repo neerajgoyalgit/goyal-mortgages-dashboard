@@ -23,6 +23,34 @@ export default async function handler(req, res) {
     if (adminError) throw adminError;
     if (!admin) return send(res, 403, { error: 'Administrator access required.' });
 
+    // Admin-only, explicit one-off Resend delivery test. No client data is sent.
+    if (req.method === 'POST' && req.body?.action === 'test_email') {
+      const { RESEND_API_KEY: resendKey, RATE_ALERT_TO_EMAIL: recipient,
+        RATE_ALERT_FROM_EMAIL: sender } = process.env;
+      if (!resendKey || !recipient || !sender) return send(res, 503, { error: 'Email configuration incomplete.' });
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: sender,
+          to: [recipient],
+          subject: 'Goyal Mortgages — Test notification',
+          text: 'Your Goyal Mortgages adviser notification email integration is working. This is a test only; no mortgage opportunity has been detected.'
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        console.error('Resend test failed:', response.status, result?.name || 'provider_error');
+        return send(res, 502, { error: 'Email provider rejected the test.', provider_status: response.status,
+          provider_message: typeof result?.message === 'string' ? result.message.slice(0, 250) : undefined });
+      }
+      return send(res, 200, { sent: true, email_id: result.id || null,
+        message: 'Test email accepted by Resend; check inbox and spam.' });
+    }
+    if (req.method === 'POST' && req.body?.action !== undefined && req.body?.action !== 'scan') {
+      return send(res, 400, { error: 'Unknown action.' });
+    }
+
     if (req.method === 'GET') {
       const { data, error } = await db.from('broker_rate_opportunities')
         .select('id,broker_client_id,candidate_lender,candidate_product_name,candidate_rate_percent,candidate_product_fee_gbp,booked_rate_percent_at_detection,same_lender,priority,status,first_detected_at,last_detected_at,adviser_notes')
