@@ -81,6 +81,8 @@ export default async function handler(req, res) {
     if (candidateError) throw candidateError;
     let inserted = 0;
     let alreadySeen = 0;
+    let emailsSent = 0;
+    let emailFailures = 0;
     for (const item of candidates || []) {
       // Product + observed rate + fee forms a stable, deduplicated event.
       const fingerprint = `v1:${item.candidate_rate_id}:${item.candidate_rate_percent}:${item.candidate_product_fee_gbp ?? 'none'}`;
@@ -99,12 +101,36 @@ export default async function handler(req, res) {
         fee_reviewed: false,
         opportunity_fingerprint: fingerprint
       };
-      const { error } = await db.from('broker_rate_opportunities').insert(record);
+      const { data: saved, error } = await db.from('broker_rate_opportunities').insert(record).select('id').single();
       if (error?.code === '23505') { alreadySeen++; continue; }
       if (error) throw error;
       inserted++;
+      // Notify only for a newly inserted opportunity. Existing fingerprints never resend.
+      // A failed email leaves adviser_notified_at NULL for a later, explicit retry.
+      const { RESEND_API_KEY: resendKey, RATE_ALERT_TO_EMAIL: recipient,
+        RATE_ALERT_FROM_EMAIL: sender } = process.env;
+      if (!resendKey || !recipient || !sender) { emailFailures++; continue; }
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: sender, to: [recipient],
+            subject: 'Goyal Mortgages — New adviser rate review opportunity',
+            text: 'A new potential mortgage rate improvement has been saved for adviser review. Sign in to your private Goyal Mortgages dashboard to check eligibility, product availability and fees. No client action has been taken.'
+          })
+        });
+        if (!response.ok) { emailFailures++; console.error('Opportunity email rejected:', response.status); continue; }
+        const { error: markError } = await db.from('broker_rate_opportunities')
+          .update({ adviser_notified_at: new Date().toISOString() }).eq('id', saved.id).is('adviser_notified_at', null);
+        if (markError) console.error('Notification timestamp update failed:', markError.code);
+        emailsSent++;
+      } catch (emailError) {
+        emailFailures++;
+        console.error('Opportunity email delivery failed:', emailError?.name || 'error');
+      }
     }
-    return send(res, 200, { scanned: (candidates || []).length, inserted, already_seen: alreadySeen, emails_sent: 0, automatic_rebookings: 0 });
+    return send(res, 200, { scanned: (candidates || []).length, inserted, already_seen: alreadySeen, emails_sent: emailsSent, email_failures: emailFailures, automatic_rebookings: 0 });
   } catch (error) {
     console.error('Broker saved opportunities API error:', error?.code || error?.name);
     return send(res, 500, { error: 'Unable to process adviser opportunities.' });
