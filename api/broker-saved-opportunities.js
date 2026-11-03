@@ -48,6 +48,94 @@ export default async function handler(req, res) {
       return send(res, 200, { sent: true, email_id: result.id || null,
         message: 'Test email accepted by Resend; check inbox and spam.' });
     }
+    // Temporary Step 4K: explicitly invoked by a signed-in dashboard administrator.
+    // Creates only isolated TEST_ONLY rows; never writes to mortgage_rates.
+    if (req.method === 'POST' && req.body?.action === 'test_live_notification') {
+      if (req.body?.confirmation !== 'RUN_STEP_4K_ONE_EMAIL') {
+        return send(res, 400, { error: 'Explicit test confirmation required.' });
+      }
+      const { RESEND_API_KEY: resendKey, RATE_ALERT_TO_EMAIL: recipient,
+        RATE_ALERT_FROM_EMAIL: sender } = process.env;
+      if (!resendKey || !recipient || !sender) return send(res, 503, { error: 'Email configuration incomplete.' });
+      let testClientId = null;
+      let testOpportunityId = null;
+      let result = null;
+      let cleanupError = null;
+      try {
+        const marker = `STEP4K_TEST_ONLY_${randomUUID()}`;
+        const { data: testClient, error: clientError } = await db.from('broker_clients').insert({
+          client_name: marker, lender: 'TEST_ONLY', booked_product_name: 'TEST_ONLY fixed',
+          booked_rate_percent: 5.5, mortgage_amount_gbp: 150000,
+          property_value_gbp: 250000, mortgage_purpose: 'purchase',
+          rate_type: 'fixed', initial_period_months: 24,
+          application_status: 'submitted', monitoring_enabled: false,
+          notes: 'STEP4K TEST_ONLY; temporary; no real borrower or lender'
+        }).select('id').single();
+        if (clientError) throw clientError;
+        testClientId = testClient.id;
+        const { data: opportunity, error: opportunityError } = await db.from('broker_rate_opportunities').insert({
+          broker_client_id: testClientId, candidate_lender: 'TEST_ONLY',
+          candidate_product_name: 'STEP4K TEST_ONLY fixed (not a real product)',
+          candidate_rate_percent: 4.5, booked_rate_percent_at_detection: 5.5,
+          same_lender: true, priority: 'review', status: 'new',
+          eligibility_verified: false, fee_reviewed: false,
+          opportunity_fingerprint: `step4k:${randomUUID()}`,
+          adviser_notes: 'STEP4K TEST_ONLY: temporary integration test; not actionable'
+        }).select('id').single();
+        if (opportunityError) throw opportunityError;
+        testOpportunityId = opportunity.id;
+        const token1 = randomUUID();
+        const { data: firstClaim, error: firstClaimError } = await db.rpc('broker_claim_rate_notification', {
+          p_id: testOpportunityId, p_token: token1
+        });
+        if (firstClaimError) throw firstClaimError;
+        if (!firstClaim) throw new Error('First notification claim was not granted');
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: sender, to: [recipient],
+            subject: 'Goyal Mortgages — STEP 4K TEST ONLY',
+            text: 'STEP 4K TEST ONLY. This is a fictional mortgage opportunity used to validate adviser notifications. No real product or client is involved. No action required.'
+          })
+        });
+        const provider = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(`Resend rejected test email (HTTP ${response.status})`);
+        const { data: finalized, error: finalizeError } = await db.rpc('broker_finish_rate_notification', {
+          p_id: testOpportunityId, p_token: token1, p_sent: true
+        });
+        if (finalizeError) throw finalizeError;
+        if (!finalized) throw new Error('Could not finalize accepted email in database');
+        const { data: notificationRow, error: readError } = await db.from('broker_rate_opportunities')
+          .select('adviser_notified_at').eq('id', testOpportunityId).single();
+        if (readError) throw readError;
+        const { data: secondClaim, error: secondClaimError } = await db.rpc('broker_claim_rate_notification', {
+          p_id: testOpportunityId, p_token: randomUUID()
+        });
+        if (secondClaimError) throw secondClaimError;
+        result = { provider_accepted: true, provider_email_id: provider?.id || null,
+          notification_recorded: Boolean(notificationRow?.adviser_notified_at),
+          duplicate_claim_blocked: !secondClaim, email_attempts: 1 };
+      } catch (error) {
+        result = { error: error?.message || 'Test failed', provider_acceptance_unknown: true };
+      } finally {
+        // Delete only rows created by this invocation, in FK-safe order.
+        if (testOpportunityId) {
+          const { error } = await db.from('broker_rate_opportunities').delete().eq('id', testOpportunityId);
+          if (error) cleanupError = 'Opportunity cleanup failed';
+        }
+        if (testClientId) {
+          const { error } = await db.from('broker_clients').delete().eq('id', testClientId);
+          if (error) cleanupError = cleanupError || 'Test client cleanup failed';
+        }
+      }
+      return send(res, result?.error || cleanupError ? 500 : 200, {
+        test: 'step4k', ...result, cleanup_ok: !cleanupError,
+        cleanup_error: cleanupError, test_client_id: cleanupError ? testClientId : undefined,
+        test_opportunity_id: cleanupError ? testOpportunityId : undefined,
+        note: 'Resend acceptance does not guarantee inbox delivery.'
+      });
+    }
     if (req.method === 'POST' && req.body?.action !== undefined && req.body?.action !== 'scan') {
       return send(res, 400, { error: 'Unknown action.' });
     }
