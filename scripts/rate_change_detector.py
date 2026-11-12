@@ -103,4 +103,3 @@ if __name__ == "__main__":
         print(f"Current rate: {change['new_rate']}%")
         print(f"Previous fee: £{change['old_fee']}")
         print(f"Current fee: £{change['new_fee']}")
-

@@ -67,7 +67,7 @@ def main():
         print("Database permissions have not been changed.")
         print("No notifications were sent.")
         print(f"Error type: {type(error).__name__}")
-        return    
+        return
 
     print("\nGOYAL MORTGAGES — LIVE RATE CHANGE REPORT")
     print("-" * 48)
@@ -130,4 +130,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
