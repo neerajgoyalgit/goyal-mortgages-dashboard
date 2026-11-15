@@ -1,0 +1,52 @@
+name: Daily Mortgage Opportunity Scan
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-mortgage-rate-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Run production opportunity scan
+        env:
+          RATE_SCAN_SECRET: ${{ secrets.RATE_SCAN_AUTOMATION_SECRET }}
+          SCAN_URL: https://goyal-mortgages-dashboard.vercel.app/api/broker-saved-opportunities
+
+        run: |
+          set -euo pipefail
+
+          if [ -z "$RATE_SCAN_SECRET" ]; then
+            echo "Automation secret is missing."
+            exit 1
+          fi
+
+          echo "Starting production mortgage opportunity scan..."
+
+          RESPONSE=$(curl --silent --show-error \
+            --fail-with-body \
+            --max-time 300 \
+            -X POST "$SCAN_URL" \
+            -H "Content-Type: application/json" \
+            -H "x-rate-scan-secret: $RATE_SCAN_SECRET" \
+            -d '{"action":"scan"}')
+
+          echo "$RESPONSE" | jq .
+
+          echo "$RESPONSE" | jq -e '
+            (.scanned | type == "number") and
+            (.email_failures == 0) and
+            (.automatic_rebookings == 0)
+          ' > /dev/null
+
+          echo "Mortgage opportunity scan completed successfully."
